@@ -318,31 +318,83 @@ export class MemStorage implements IStorage {
     });
 
     // Seed messages
+    const memberIds = Array.from(this.members.keys());
+    
     const messages: InsertMessage[] = [
+      // Global team chat messages
       {
-        senderId: "member-1",
-        content: "Hey team! Just finished the new design mockups. Would love your feedback!",
+        senderId: memberIds[0] || "member-1",
+        receiverId: "global",
+        content: "Good morning team! Ready for another productive day!",
+        timestamp: "9:00 AM",
+      },
+      {
+        senderId: memberIds[3] || "member-2",
+        receiverId: "global",
+        content: "Morning! Just deployed the latest updates to staging. Everything looks good!",
+        timestamp: "9:15 AM",
+      },
+      {
+        senderId: memberIds[1] || "member-3",
+        receiverId: "global",
+        content: "Great work team! The new design is coming together nicely.",
+        timestamp: "9:30 AM",
+      },
+      {
+        senderId: "current-user",
+        receiverId: "global",
+        content: "Thanks everyone! Let's keep this momentum going.",
+        timestamp: "9:45 AM",
+      },
+      {
+        senderId: memberIds[4] || "member-4",
+        receiverId: "global",
+        content: "Quick reminder: Team standup at 10 AM in the main conference room!",
+        timestamp: "9:50 AM",
+      },
+      {
+        senderId: memberIds[2] || "member-5",
+        receiverId: "global",
+        content: "I'll be there! Just finishing up some code reviews.",
+        timestamp: "9:52 AM",
+      },
+      {
+        senderId: memberIds[6] || "member-6",
+        receiverId: "global",
+        content: "The Q4 marketing campaign is now live! Check it out on our social channels.",
         timestamp: "10:30 AM",
       },
+      
+      // 1-on-1 messages with first member
+      {
+        senderId: memberIds[0] || "member-1",
+        receiverId: "current-user",
+        content: "Hey! Just finished the new design mockups. Would love your feedback!",
+        timestamp: "11:30 AM",
+      },
       {
         senderId: "current-user",
+        receiverId: memberIds[0] || "member-1",
         content: "Great work! They look fantastic. Can we schedule a review meeting?",
-        timestamp: "10:32 AM",
+        timestamp: "11:32 AM",
       },
       {
-        senderId: "member-1",
+        senderId: memberIds[0] || "member-1",
+        receiverId: "current-user",
         content: "Absolutely! How about tomorrow at 2 PM?",
-        timestamp: "10:33 AM",
+        timestamp: "11:33 AM",
       },
       {
         senderId: "current-user",
+        receiverId: memberIds[0] || "member-1",
         content: "Perfect! I'll send out the calendar invite.",
-        timestamp: "10:35 AM",
+        timestamp: "11:35 AM",
       },
       {
-        senderId: "member-1",
+        senderId: memberIds[0] || "member-1",
+        receiverId: "current-user",
         content: "Thanks! Looking forward to it.",
-        timestamp: "10:36 AM",
+        timestamp: "11:36 AM",
       },
     ];
 

@@ -43,6 +43,7 @@ export const members = pgTable("members", {
 export const messages = pgTable("messages", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
   senderId: text("sender_id").notNull(),
+  receiverId: text("receiver_id").notNull(),
   content: text("content").notNull(),
   timestamp: text("timestamp").notNull(),
 });
