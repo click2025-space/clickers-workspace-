@@ -1,0 +1,79 @@
+Build a modern, clean, and elegant web app UI called "Clickers Workspace" — a digital workspace for managing teams, organizing tasks, and working collaboratively in a virtual office environment.
+
+⚡ General Theme:
+
+Professional and minimalist look.
+
+Colors: dark background with purple and blue accents (Clickers’ theme).
+
+Rounded cards, soft shadows, and simple transitions on hover.
+
+Built using React + TailwindCSS (no backend, no animations needed).
+
+🧩 Main Pages / Components:
+
+1. Dashboard Page
+
+Shows overview of all projects and departments.
+
+Each project displayed as a clean card with title, progress bar, and assigned team.
+
+Top navbar with logo “Clickers Workspace” and user avatar.
+
+2. Virtual Offices Page
+
+Displays all departments (Design, Development, Marketing, Admin, etc.).
+
+Each department shown as a rectangular card with icon, name, and list of team members.
+
+Clicking a department opens its page with static “office view” — description, team, and task summary.
+
+3. Tasks Board Page
+
+Simple Kanban-style board (Frontend only).
+
+Columns: “To Do”, “In Progress”, “Done”.
+
+Each task is a draggable card (React DnD or basic implementation).
+
+Each task shows title, assigned person, and due date.
+
+4. Team Chat Page
+
+Frontend-only chat layout (no backend).
+
+Sidebar with list of members.
+
+Main chat area with message bubbles styled in Clickers’ theme colors.
+
+Input bar at the bottom (non-functional).
+
+5. Members Page
+
+Grid layout of all team members.
+
+Each member has a profile card: photo, name, role, and department.
+
+Option to add new members (Frontend form).
+
+6. Settings Page
+
+Basic theme options (Light / Dark).
+
+Static controls for workspace name, departments, and colors.
+
+🧱 Extra UI Elements:
+
+Reusable sidebar with navigation links: Dashboard, Offices, Tasks, Chat, Members, Settings.
+
+Header bar with search, notifications icon, and user menu.
+
+Footer with “© Clickers 2025 – All Rights Reserved”.
+
+🎨 Design Goals:
+
+Keep everything clean, structured, and easy to use.
+
+Focus on teamwork, productivity, and visual organization.
+
+Make it look like a real internal workspace for the Clickers team.
