@@ -6,8 +6,8 @@ import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Send, Smile, Paperclip, Users } from "lucide-react";
-import { apiRequest, queryClient } from "@/lib/queryClient";
-import type { Member, Message } from "@shared/schema";
+import { queryClient } from "@/lib/queryClient";
+import { messagesApi, membersApi } from "@/lib/supabase-api";
 import { useToast } from "@/hooks/use-toast";
 import { useSupabaseAuth } from "@/contexts/supabase-auth-context";
 
@@ -17,27 +17,28 @@ export default function TeamChat() {
   const { toast } = useToast();
   const { user, profile } = useSupabaseAuth();
 
-  const { data: members, isLoading: membersLoading } = useQuery<Member[]>({
-    queryKey: ["/api/members"],
+  const { data: members, isLoading: membersLoading } = useQuery({
+    queryKey: ["members"],
+    queryFn: membersApi.getAll,
   });
 
-  const { data: messages, isLoading: messagesLoading } = useQuery<Message[]>({
-    queryKey: ["/api/messages"],
+  const { data: messages, isLoading: messagesLoading } = useQuery({
+    queryKey: ["messages"],
+    queryFn: messagesApi.getAll,
   });
 
   const sendMessageMutation = useMutation({
     mutationFn: async (data: { receiverId: string; content: string }) => {
-      const timestamp = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
-      return await apiRequest("POST", "/api/messages", {
-        senderId: user?.id || "anonymous",
-        senderName: profile?.name || user?.email?.split('@')[0] || "Anonymous",
-        receiverId: data.receiverId,
+      const timestamp = new Date().toISOString();
+      return await messagesApi.create({
+        sender_id: user?.id || "anonymous",
+        channel: data.receiverId,
         content: data.content,
         timestamp,
       });
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["/api/messages"] });
+      queryClient.invalidateQueries({ queryKey: ["messages"] });
       setMessageInput("");
     },
     onError: () => {
@@ -59,11 +60,11 @@ export default function TeamChat() {
 
   const filteredMessages = messages?.filter((msg) => {
     if (selectedMember === "global") {
-      return msg.receiverId === "global";
+      return msg.channel === "global";
     }
     return (
-      (msg.senderId === user?.id && msg.receiverId === selectedMember) ||
-      (msg.senderId === selectedMember && msg.receiverId === user?.id)
+      (msg.sender_id === user?.id && msg.channel === selectedMember) ||
+      (msg.sender_id === selectedMember && msg.channel === user?.id)
     );
   }) || [];
 
@@ -189,12 +190,12 @@ export default function TeamChat() {
 
                 <div className="flex-1 overflow-y-auto p-4 space-y-4">
                   {filteredMessages.map((message) => {
-                    const isSent = message.senderId === user?.id;
-                    const sender = members?.find(m => m.id === message.senderId);
+                    const isSent = message.sender_id === user?.id;
+                    const sender = members?.find(m => m.id === message.sender_id);
                     const isGlobalChat = selectedMember === "global";
                     
-                    // Use senderName from message if available, otherwise fallback to member lookup
-                    const displayName = message.senderName || sender?.name || "Unknown User";
+                    // Get sender name from member lookup or profile
+                    const displayName = sender?.name || "Unknown User";
                     const initials = displayName.split(' ').map((n: string) => n[0]).join('').toUpperCase() || "U";
                     
                     return (

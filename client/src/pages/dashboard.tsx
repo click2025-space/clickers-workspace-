@@ -1,18 +1,20 @@
 import { useQuery } from "@tanstack/react-query";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { Badge } from "@/components/ui/badge";
-import { BarChart3, TrendingUp, Users, FolderKanban } from "lucide-react";
-import type { Project, Department } from "@shared/schema";
+import { Users, FolderOpen, CheckCircle2, TrendingUp, Calendar, Clock, FolderKanban, BarChart3 } from "lucide-react";
+import { projectsApi, departmentsApi } from "@/lib/supabase-api";
 
 export default function Dashboard() {
-  const { data: projects, isLoading: projectsLoading } = useQuery<Project[]>({
-    queryKey: ["/api/projects"],
+  const { data: projects, isLoading: projectsLoading } = useQuery({
+    queryKey: ["projects"],
+    queryFn: projectsApi.getAll,
   });
 
-  const { data: departments, isLoading: departmentsLoading } = useQuery<Department[]>({
-    queryKey: ["/api/departments"],
+  const { data: departments, isLoading: departmentsLoading } = useQuery({
+    queryKey: ["departments"],
+    queryFn: departmentsApi.getAll,
   });
 
   const stats = [
@@ -32,7 +34,7 @@ export default function Dashboard() {
     },
     {
       title: "Team Members",
-      value: departments?.reduce((acc, dept) => acc + dept.teamMembers.length, 0) || 0,
+      value: departments?.reduce((acc, dept) => acc + dept.team_members.length, 0) || 0,
       icon: Users,
       color: "text-chart-3",
       bgColor: "bg-chart-3/10",
@@ -118,17 +120,17 @@ export default function Dashboard() {
                   <div>
                     <p className="text-sm text-muted-foreground mb-2">Team Members</p>
                     <div className="flex -space-x-2">
-                      {project.teamMembers.slice(0, 4).map((member, idx) => (
+                      {project.team_members.slice(0, 4).map((member: string, idx: number) => (
                         <Avatar key={idx} className="border-2 border-card w-8 h-8">
                           <AvatarImage src="" alt={member} />
                           <AvatarFallback className="text-xs bg-gradient-to-br from-primary to-chart-2 text-white">
-                            {member.split(' ').map(n => n[0]).join('')}
+                            {member.split(' ').map((n: string) => n[0]).join('')}
                           </AvatarFallback>
                         </Avatar>
                       ))}
-                      {project.teamMembers.length > 4 && (
+                      {project.team_members.length > 4 && (
                         <div className="flex items-center justify-center w-8 h-8 rounded-full border-2 border-card bg-secondary text-xs font-medium">
-                          +{project.teamMembers.length - 4}
+                          +{project.team_members.length - 4}
                         </div>
                       )}
                     </div>

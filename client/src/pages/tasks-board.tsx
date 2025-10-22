@@ -1,12 +1,16 @@
 import { useState } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Plus, GripVertical, Calendar } from "lucide-react";
-import { queryClient, apiRequest } from "@/lib/queryClient";
-import type { Task } from "@shared/schema";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { Clock, User, Calendar, CheckCircle2, Plus, GripVertical } from "lucide-react";
+import { queryClient } from "@/lib/queryClient";
+import { tasksApi } from "@/lib/supabase-api";
+import type { Database } from "@/lib/supabase";
+import { cn } from "@/lib/utils";
+
+type Task = Database['public']['Tables']['tasks']['Row'];
 
 const columns = [
   { id: "todo", title: "To Do", color: "text-muted-foreground" },
@@ -17,16 +21,17 @@ const columns = [
 export default function TasksBoard() {
   const [draggedTask, setDraggedTask] = useState<Task | null>(null);
 
-  const { data: tasks, isLoading } = useQuery<Task[]>({
-    queryKey: ["/api/tasks"],
+  const { data: tasks, isLoading } = useQuery({
+    queryKey: ["tasks"],
+    queryFn: tasksApi.getAll,
   });
 
   const updateTaskMutation = useMutation({
     mutationFn: async ({ id, status }: { id: string; status: string }) => {
-      return await apiRequest("PATCH", `/api/tasks/${id}`, { status });
+      return await tasksApi.update(id, { status });
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["/api/tasks"] });
+      queryClient.invalidateQueries({ queryKey: ["tasks"] });
     },
   });
 
@@ -117,22 +122,22 @@ export default function TasksBoard() {
                       )}
                       
                       <div className="flex items-center justify-between gap-2">
-                        {task.assignedTo && (
+                        {task.assigned_to && (
                           <div className="flex items-center gap-2" data-testid={`assignee-${task.id}`}>
                             <Avatar className="w-6 h-6">
-                              <AvatarImage src="" alt={task.assignedTo} />
+                              <AvatarImage src="" alt={task.assigned_to} />
                               <AvatarFallback className="text-xs bg-gradient-to-br from-primary to-chart-2 text-white">
-                                {task.assignedTo.split(' ').map(n => n[0]).join('')}
+                                {task.assigned_to.split(' ').map((n: string) => n[0]).join('')}
                               </AvatarFallback>
                             </Avatar>
-                            <span className="text-xs text-muted-foreground" data-testid={`text-assignee-${task.id}`}>{task.assignedTo}</span>
+                            <span className="text-xs text-muted-foreground" data-testid={`text-assignee-${task.id}`}>{task.assigned_to}</span>
                           </div>
                         )}
                         
-                        {task.dueDate && (
+                        {task.due_date && (
                           <div className="flex items-center gap-1 text-xs text-muted-foreground" data-testid={`text-due-date-${task.id}`}>
                             <Calendar className="w-3 h-3" />
-                            <span>{task.dueDate}</span>
+                            <span>{task.due_date}</span>
                           </div>
                         )}
                       </div>
