@@ -9,11 +9,13 @@ import { Send, Smile, Paperclip, Users } from "lucide-react";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import type { Member, Message } from "@shared/schema";
 import { useToast } from "@/hooks/use-toast";
+import { useSupabaseAuth } from "@/contexts/supabase-auth-context";
 
 export default function TeamChat() {
   const [selectedMember, setSelectedMember] = useState<string | null>("global");
   const [messageInput, setMessageInput] = useState("");
   const { toast } = useToast();
+  const { user, profile } = useSupabaseAuth();
 
   const { data: members, isLoading: membersLoading } = useQuery<Member[]>({
     queryKey: ["/api/members"],
@@ -27,7 +29,8 @@ export default function TeamChat() {
     mutationFn: async (data: { receiverId: string; content: string }) => {
       const timestamp = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
       return await apiRequest("POST", "/api/messages", {
-        senderId: "current-user",
+        senderId: user?.id || "anonymous",
+        senderName: profile?.name || user?.email?.split('@')[0] || "Anonymous",
         receiverId: data.receiverId,
         content: data.content,
         timestamp,
@@ -59,8 +62,8 @@ export default function TeamChat() {
       return msg.receiverId === "global";
     }
     return (
-      (msg.senderId === "current-user" && msg.receiverId === selectedMember) ||
-      (msg.senderId === selectedMember && msg.receiverId === "current-user")
+      (msg.senderId === user?.id && msg.receiverId === selectedMember) ||
+      (msg.senderId === selectedMember && msg.receiverId === user?.id)
     );
   }) || [];
 
@@ -186,9 +189,13 @@ export default function TeamChat() {
 
                 <div className="flex-1 overflow-y-auto p-4 space-y-4">
                   {filteredMessages.map((message) => {
-                    const isSent = message.senderId === "current-user";
+                    const isSent = message.senderId === user?.id;
                     const sender = members?.find(m => m.id === message.senderId);
                     const isGlobalChat = selectedMember === "global";
+                    
+                    // Use senderName from message if available, otherwise fallback to member lookup
+                    const displayName = message.senderName || sender?.name || "Unknown User";
+                    const initials = displayName.split(' ').map((n: string) => n[0]).join('').toUpperCase() || "U";
                     
                     return (
                       <div
@@ -201,14 +208,14 @@ export default function TeamChat() {
                             <Avatar className="w-8 h-8 flex-shrink-0">
                               <AvatarImage src="" alt="User" />
                               <AvatarFallback className={`text-xs ${isSent ? "bg-gradient-to-br from-primary to-chart-2 text-white" : "bg-secondary"}`}>
-                                {isSent ? "You" : (sender?.name.split(' ').map(n => n[0]).join('') || "U")}
+                                {isSent ? (profile?.name?.split(' ').map((n: string) => n[0]).join('').toUpperCase() || "You") : initials}
                               </AvatarFallback>
                             </Avatar>
                           )}
                           <div className="space-y-1">
                             {isGlobalChat && (
                               <p className={`text-xs font-medium ${isSent ? "text-primary" : "text-muted-foreground"}`}>
-                                {isSent ? "You" : sender?.name}
+                                {isSent ? (profile?.name || "You") : displayName}
                               </p>
                             )}
                             <div

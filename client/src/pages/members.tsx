@@ -21,8 +21,9 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { Plus, Mail, Users as UsersIcon, Search } from "lucide-react";
+import { Plus, Mail, Users as UsersIcon, Search, User } from "lucide-react";
 import { queryClient, apiRequest } from "@/lib/queryClient";
+import { Link } from "wouter";
 import type { Member } from "@shared/schema";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -230,6 +231,12 @@ export default function Members() {
                   <Mail className="w-4 h-4" />
                   <span className="truncate" data-testid={`text-email-${member.id}`}>{member.email}</span>
                 </div>
+                <Link href={`/profile/${member.id}`}>
+                  <Button className="w-full mt-3 bg-cafe-600 hover:bg-cafe-700 text-white" size="sm">
+                    <User className="w-4 h-4 mr-2" />
+                    Open Workspace
+                  </Button>
+                </Link>
               </CardContent>
             </Card>
           ))

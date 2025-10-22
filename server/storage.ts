@@ -5,12 +5,24 @@ import type {
   InsertDepartment,
   Task,
   InsertTask,
+  User,
+  InsertUser,
+  Profile,
+  InsertProfile,
+  Session,
+  InsertSession,
   Member,
   InsertMember,
   Message,
   InsertMessage,
   Settings,
   InsertSettings,
+  WorkspaceNote,
+  InsertWorkspaceNote,
+  WorkspaceFile,
+  InsertWorkspaceFile,
+  WorkspaceData,
+  InsertWorkspaceData,
 } from "@shared/schema";
 import { randomUUID } from "crypto";
 
@@ -51,22 +63,71 @@ export interface IStorage {
   // Settings
   getSettings(): Promise<Settings>;
   updateSettings(settings: Partial<InsertSettings>): Promise<Settings>;
+
+  // Authentication - Users
+  getUserByEmail(email: string): Promise<User | undefined>;
+  getUserById(id: string): Promise<User | undefined>;
+  createUser(user: InsertUser): Promise<User>;
+  updateUser(id: string, user: Partial<InsertUser>): Promise<User | undefined>;
+
+  // Authentication - Profiles
+  getProfileByUserId(userId: string): Promise<Profile | undefined>;
+  createProfile(profile: InsertProfile): Promise<Profile>;
+  updateProfile(userId: string, profile: Partial<InsertProfile>): Promise<Profile | undefined>;
+
+  // Authentication - Sessions
+  createSession(session: InsertSession): Promise<Session>;
+  getSessionByToken(token: string): Promise<Session | undefined>;
+  deleteSession(token: string): Promise<boolean>;
+  deleteUserSessions(userId: string): Promise<boolean>;
+
+  // Workspace Notes
+  getWorkspaceNotes(memberId: string): Promise<WorkspaceNote[]>;
+  getWorkspaceNote(id: string): Promise<WorkspaceNote | undefined>;
+  createWorkspaceNote(note: InsertWorkspaceNote): Promise<WorkspaceNote>;
+  updateWorkspaceNote(id: string, note: Partial<InsertWorkspaceNote>): Promise<WorkspaceNote | undefined>;
+  deleteWorkspaceNote(id: string): Promise<boolean>;
+
+  // Workspace Files
+  getWorkspaceFiles(memberId: string): Promise<WorkspaceFile[]>;
+  getWorkspaceFile(id: string): Promise<WorkspaceFile | undefined>;
+  createWorkspaceFile(file: InsertWorkspaceFile): Promise<WorkspaceFile>;
+  deleteWorkspaceFile(id: string): Promise<boolean>;
+
+  // Workspace Data
+  getWorkspaceData(memberId: string): Promise<WorkspaceData[]>;
+  getWorkspaceDataItem(id: string): Promise<WorkspaceData | undefined>;
+  createWorkspaceData(data: InsertWorkspaceData): Promise<WorkspaceData>;
+  updateWorkspaceData(id: string, data: Partial<InsertWorkspaceData>): Promise<WorkspaceData | undefined>;
+  deleteWorkspaceData(id: string): Promise<boolean>;
 }
 
 export class MemStorage implements IStorage {
   private projects: Map<string, Project>;
   private departments: Map<string, Department>;
   private tasks: Map<string, Task>;
+  private users: Map<string, User>;
+  private profiles: Map<string, Profile>;
+  private sessions: Map<string, Session>;
   private members: Map<string, Member>;
   private messages: Map<string, Message>;
   private settings: Settings;
+  private workspaceNotes: Map<string, WorkspaceNote>;
+  private workspaceFiles: Map<string, WorkspaceFile>;
+  private workspaceData: Map<string, WorkspaceData>;
 
   constructor() {
     this.projects = new Map();
     this.departments = new Map();
     this.tasks = new Map();
+    this.users = new Map();
+    this.profiles = new Map();
+    this.sessions = new Map();
     this.members = new Map();
     this.messages = new Map();
+    this.workspaceNotes = new Map();
+    this.workspaceFiles = new Map();
+    this.workspaceData = new Map();
     this.settings = {
       id: randomUUID(),
       workspaceName: "Clickers Workspace",
@@ -77,31 +138,31 @@ export class MemStorage implements IStorage {
   }
 
   private seedData() {
-    // Seed departments
+    // Seed departments with empty team members
     const departments: InsertDepartment[] = [
       {
         name: "Design",
         icon: "palette",
         description: "UI/UX design and creative development",
-        teamMembers: ["Sarah Johnson", "Mike Chen", "Emma Wilson"],
+        teamMembers: [],
       },
       {
         name: "Development",
         icon: "code",
         description: "Software engineering and technical implementation",
-        teamMembers: ["Alex Rodriguez", "Lisa Park", "James Smith", "Nina Patel"],
+        teamMembers: [],
       },
       {
         name: "Marketing",
         icon: "megaphone",
         description: "Brand strategy and market growth",
-        teamMembers: ["David Lee", "Sophie Turner"],
+        teamMembers: [],
       },
       {
         name: "Admin",
         icon: "briefcase",
         description: "Operations and administrative support",
-        teamMembers: ["Rachel Green", "Tom Anderson"],
+        teamMembers: [],
       },
     ];
 
@@ -110,35 +171,35 @@ export class MemStorage implements IStorage {
       this.departments.set(id, { ...dept, id });
     });
 
-    // Seed projects
+    // Seed projects with empty team members
     const projects: InsertProject[] = [
       {
         name: "Website Redesign",
         description: "Complete overhaul of the company website with modern design",
         progress: 65,
         department: "Design",
-        teamMembers: ["Sarah Johnson", "Mike Chen", "Alex Rodriguez"],
+        teamMembers: [],
       },
       {
         name: "Mobile App Development",
         description: "Native iOS and Android application for our platform",
         progress: 45,
         department: "Development",
-        teamMembers: ["Alex Rodriguez", "Lisa Park", "James Smith"],
+        teamMembers: [],
       },
       {
         name: "Q1 Marketing Campaign",
         description: "Launch campaign for our new product line",
         progress: 80,
         department: "Marketing",
-        teamMembers: ["David Lee", "Sophie Turner", "Emma Wilson"],
+        teamMembers: [],
       },
       {
         name: "Internal Tools Upgrade",
         description: "Modernize internal workflow tools and processes",
         progress: 30,
         department: "Development",
-        teamMembers: ["Nina Patel", "James Smith"],
+        teamMembers: [],
       },
     ];
 
@@ -147,261 +208,11 @@ export class MemStorage implements IStorage {
       this.projects.set(id, { ...project, id });
     });
 
-    // Seed members
-    const members: InsertMember[] = [
-      {
-        name: "Sarah Johnson",
-        email: "sarah.johnson@clickers.com",
-        role: "Senior Product Designer",
-        department: "Design",
-        avatar: "",
-        status: "online",
-      },
-      {
-        name: "Mike Chen",
-        email: "mike.chen@clickers.com",
-        role: "UI/UX Designer",
-        department: "Design",
-        avatar: "",
-        status: "online",
-      },
-      {
-        name: "Emma Wilson",
-        email: "emma.wilson@clickers.com",
-        role: "Graphic Designer",
-        department: "Design",
-        avatar: "",
-        status: "away",
-      },
-      {
-        name: "Alex Rodriguez",
-        email: "alex.rodriguez@clickers.com",
-        role: "Lead Developer",
-        department: "Development",
-        avatar: "",
-        status: "online",
-      },
-      {
-        name: "Lisa Park",
-        email: "lisa.park@clickers.com",
-        role: "Frontend Developer",
-        department: "Development",
-        avatar: "",
-        status: "online",
-      },
-      {
-        name: "James Smith",
-        email: "james.smith@clickers.com",
-        role: "Backend Developer",
-        department: "Development",
-        avatar: "",
-        status: "online",
-      },
-      {
-        name: "Nina Patel",
-        email: "nina.patel@clickers.com",
-        role: "Full Stack Developer",
-        department: "Development",
-        avatar: "",
-        status: "away",
-      },
-      {
-        name: "David Lee",
-        email: "david.lee@clickers.com",
-        role: "Marketing Manager",
-        department: "Marketing",
-        avatar: "",
-        status: "online",
-      },
-      {
-        name: "Sophie Turner",
-        email: "sophie.turner@clickers.com",
-        role: "Content Strategist",
-        department: "Marketing",
-        avatar: "",
-        status: "online",
-      },
-      {
-        name: "Rachel Green",
-        email: "rachel.green@clickers.com",
-        role: "Office Manager",
-        department: "Admin",
-        avatar: "",
-        status: "online",
-      },
-      {
-        name: "Tom Anderson",
-        email: "tom.anderson@clickers.com",
-        role: "HR Specialist",
-        department: "Admin",
-        avatar: "",
-        status: "away",
-      },
-    ];
+    // No mock members - start with empty member list
 
-    members.forEach((member) => {
-      const id = randomUUID();
-      this.members.set(id, { ...member, id });
-    });
+    // No mock tasks - start with empty task list
 
-    // Seed tasks
-    const tasks: InsertTask[] = [
-      {
-        title: "Design new homepage layout",
-        description: "Create wireframes and mockups for the new homepage",
-        status: "in-progress",
-        assignedTo: "Sarah Johnson",
-        dueDate: "2025-11-15",
-        projectId: "",
-      },
-      {
-        title: "Implement authentication system",
-        description: "Set up user authentication with OAuth",
-        status: "in-progress",
-        assignedTo: "Alex Rodriguez",
-        dueDate: "2025-11-20",
-        projectId: "",
-      },
-      {
-        title: "Write product documentation",
-        description: "Create comprehensive user guides",
-        status: "todo",
-        assignedTo: "Sophie Turner",
-        dueDate: "2025-11-25",
-        projectId: "",
-      },
-      {
-        title: "Code review for mobile app",
-        description: "Review and approve pull requests",
-        status: "todo",
-        assignedTo: "Lisa Park",
-        dueDate: "2025-11-18",
-        projectId: "",
-      },
-      {
-        title: "Deploy staging environment",
-        description: "Set up and configure staging server",
-        status: "done",
-        assignedTo: "James Smith",
-        dueDate: "2025-11-10",
-        projectId: "",
-      },
-      {
-        title: "Update brand guidelines",
-        description: "Finalize new brand visual identity",
-        status: "done",
-        assignedTo: "Mike Chen",
-        dueDate: "2025-11-08",
-        projectId: "",
-      },
-      {
-        title: "Optimize database queries",
-        description: "Improve performance of slow queries",
-        status: "in-progress",
-        assignedTo: "Nina Patel",
-        dueDate: "2025-11-22",
-        projectId: "",
-      },
-      {
-        title: "Plan social media campaign",
-        description: "Create content calendar for Q4",
-        status: "todo",
-        assignedTo: "David Lee",
-        dueDate: "2025-11-30",
-        projectId: "",
-      },
-    ];
-
-    tasks.forEach((task) => {
-      const id = randomUUID();
-      this.tasks.set(id, { ...task, id });
-    });
-
-    // Seed messages
-    const memberIds = Array.from(this.members.keys());
-    
-    const messages: InsertMessage[] = [
-      // Global team chat messages
-      {
-        senderId: memberIds[0] || "member-1",
-        receiverId: "global",
-        content: "Good morning team! Ready for another productive day!",
-        timestamp: "9:00 AM",
-      },
-      {
-        senderId: memberIds[3] || "member-2",
-        receiverId: "global",
-        content: "Morning! Just deployed the latest updates to staging. Everything looks good!",
-        timestamp: "9:15 AM",
-      },
-      {
-        senderId: memberIds[1] || "member-3",
-        receiverId: "global",
-        content: "Great work team! The new design is coming together nicely.",
-        timestamp: "9:30 AM",
-      },
-      {
-        senderId: "current-user",
-        receiverId: "global",
-        content: "Thanks everyone! Let's keep this momentum going.",
-        timestamp: "9:45 AM",
-      },
-      {
-        senderId: memberIds[4] || "member-4",
-        receiverId: "global",
-        content: "Quick reminder: Team standup at 10 AM in the main conference room!",
-        timestamp: "9:50 AM",
-      },
-      {
-        senderId: memberIds[2] || "member-5",
-        receiverId: "global",
-        content: "I'll be there! Just finishing up some code reviews.",
-        timestamp: "9:52 AM",
-      },
-      {
-        senderId: memberIds[6] || "member-6",
-        receiverId: "global",
-        content: "The Q4 marketing campaign is now live! Check it out on our social channels.",
-        timestamp: "10:30 AM",
-      },
-      
-      // 1-on-1 messages with first member
-      {
-        senderId: memberIds[0] || "member-1",
-        receiverId: "current-user",
-        content: "Hey! Just finished the new design mockups. Would love your feedback!",
-        timestamp: "11:30 AM",
-      },
-      {
-        senderId: "current-user",
-        receiverId: memberIds[0] || "member-1",
-        content: "Great work! They look fantastic. Can we schedule a review meeting?",
-        timestamp: "11:32 AM",
-      },
-      {
-        senderId: memberIds[0] || "member-1",
-        receiverId: "current-user",
-        content: "Absolutely! How about tomorrow at 2 PM?",
-        timestamp: "11:33 AM",
-      },
-      {
-        senderId: "current-user",
-        receiverId: memberIds[0] || "member-1",
-        content: "Perfect! I'll send out the calendar invite.",
-        timestamp: "11:35 AM",
-      },
-      {
-        senderId: memberIds[0] || "member-1",
-        receiverId: "current-user",
-        content: "Thanks! Looking forward to it.",
-        timestamp: "11:36 AM",
-      },
-    ];
-
-    messages.forEach((message) => {
-      const id = randomUUID();
-      this.messages.set(id, { ...message, id });
-    });
+    // No mock messages - start with empty message list
   }
 
   // Projects
@@ -540,6 +351,193 @@ export class MemStorage implements IStorage {
   async updateSettings(updates: Partial<InsertSettings>): Promise<Settings> {
     this.settings = { ...this.settings, ...updates };
     return this.settings;
+  }
+
+  // Workspace Notes
+  async getWorkspaceNotes(memberId: string): Promise<WorkspaceNote[]> {
+    return Array.from(this.workspaceNotes.values()).filter(note => note.memberId === memberId);
+  }
+
+  async getWorkspaceNote(id: string): Promise<WorkspaceNote | undefined> {
+    return this.workspaceNotes.get(id);
+  }
+
+  async createWorkspaceNote(note: InsertWorkspaceNote): Promise<WorkspaceNote> {
+    const id = randomUUID();
+    const now = new Date().toISOString();
+    const newNote: WorkspaceNote = {
+      category: "general",
+      ...note,
+      id,
+      createdAt: now,
+      updatedAt: now,
+    };
+    this.workspaceNotes.set(id, newNote);
+    return newNote;
+  }
+
+  async updateWorkspaceNote(id: string, updates: Partial<InsertWorkspaceNote>): Promise<WorkspaceNote | undefined> {
+    const note = this.workspaceNotes.get(id);
+    if (!note) return undefined;
+    const updated = { ...note, ...updates, updatedAt: new Date().toISOString() };
+    this.workspaceNotes.set(id, updated);
+    return updated;
+  }
+
+  async deleteWorkspaceNote(id: string): Promise<boolean> {
+    return this.workspaceNotes.delete(id);
+  }
+
+  // Workspace Files
+  async getWorkspaceFiles(memberId: string): Promise<WorkspaceFile[]> {
+    return Array.from(this.workspaceFiles.values()).filter(file => file.memberId === memberId);
+  }
+
+  async getWorkspaceFile(id: string): Promise<WorkspaceFile | undefined> {
+    return this.workspaceFiles.get(id);
+  }
+
+  async createWorkspaceFile(file: InsertWorkspaceFile): Promise<WorkspaceFile> {
+    const id = randomUUID();
+    const newFile: WorkspaceFile = {
+      ...file,
+      id,
+      uploadedAt: new Date().toISOString(),
+    };
+    this.workspaceFiles.set(id, newFile);
+    return newFile;
+  }
+
+  async deleteWorkspaceFile(id: string): Promise<boolean> {
+    return this.workspaceFiles.delete(id);
+  }
+
+  // Workspace Data
+  async getWorkspaceData(memberId: string): Promise<WorkspaceData[]> {
+    return Array.from(this.workspaceData.values()).filter(data => data.memberId === memberId);
+  }
+
+  async getWorkspaceDataItem(id: string): Promise<WorkspaceData | undefined> {
+    return this.workspaceData.get(id);
+  }
+
+  async createWorkspaceData(data: InsertWorkspaceData): Promise<WorkspaceData> {
+    const id = randomUUID();
+    const now = new Date().toISOString();
+    const newData: WorkspaceData = {
+      dataType: "string",
+      category: "general",
+      ...data,
+      id,
+      createdAt: now,
+      updatedAt: now,
+    };
+    this.workspaceData.set(id, newData);
+    return newData;
+  }
+
+  async updateWorkspaceData(id: string, updates: Partial<InsertWorkspaceData>): Promise<WorkspaceData | undefined> {
+    const data = this.workspaceData.get(id);
+    if (!data) return undefined;
+    const updated = { ...data, ...updates, updatedAt: new Date().toISOString() };
+    this.workspaceData.set(id, updated);
+    return updated;
+  }
+
+  async deleteWorkspaceData(id: string): Promise<boolean> {
+    return this.workspaceData.delete(id);
+  }
+
+  // Authentication - Users
+  async getUserByEmail(email: string): Promise<User | undefined> {
+    return Array.from(this.users.values()).find(user => user.email === email);
+  }
+
+  async getUserById(id: string): Promise<User | undefined> {
+    return this.users.get(id);
+  }
+
+  async createUser(user: InsertUser): Promise<User> {
+    const id = randomUUID();
+    const now = new Date().toISOString();
+    const newUser: User = {
+      isVerified: "false",
+      ...user,
+      id,
+      createdAt: now,
+      updatedAt: now,
+    };
+    this.users.set(id, newUser);
+    return newUser;
+  }
+
+  async updateUser(id: string, updates: Partial<InsertUser>): Promise<User | undefined> {
+    const user = this.users.get(id);
+    if (!user) return undefined;
+    const updated = { ...user, ...updates, updatedAt: new Date().toISOString() };
+    this.users.set(id, updated);
+    return updated;
+  }
+
+  // Authentication - Profiles
+  async getProfileByUserId(userId: string): Promise<Profile | undefined> {
+    return Array.from(this.profiles.values()).find(profile => profile.userId === userId);
+  }
+
+  async createProfile(profile: InsertProfile): Promise<Profile> {
+    const id = randomUUID();
+    const now = new Date().toISOString();
+    const newProfile: Profile = {
+      isOnboardingComplete: "false",
+      skills: [],
+      ...profile,
+      id,
+      createdAt: now,
+      updatedAt: now,
+    };
+    this.profiles.set(id, newProfile);
+    return newProfile;
+  }
+
+  async updateProfile(userId: string, updates: Partial<InsertProfile>): Promise<Profile | undefined> {
+    const profile = Array.from(this.profiles.values()).find(p => p.userId === userId);
+    if (!profile) return undefined;
+    const updated = { ...profile, ...updates, updatedAt: new Date().toISOString() };
+    this.profiles.set(profile.id, updated);
+    return updated;
+  }
+
+  // Authentication - Sessions
+  async createSession(session: InsertSession): Promise<Session> {
+    const id = randomUUID();
+    const newSession: Session = {
+      ...session,
+      id,
+      createdAt: new Date().toISOString(),
+    };
+    this.sessions.set(id, newSession);
+    return newSession;
+  }
+
+  async getSessionByToken(token: string): Promise<Session | undefined> {
+    return Array.from(this.sessions.values()).find(session => session.token === token);
+  }
+
+  async deleteSession(token: string): Promise<boolean> {
+    const session = Array.from(this.sessions.values()).find(s => s.token === token);
+    if (!session) return false;
+    return this.sessions.delete(session.id);
+  }
+
+  async deleteUserSessions(userId: string): Promise<boolean> {
+    const userSessions = Array.from(this.sessions.values()).filter(s => s.userId === userId);
+    let deleted = false;
+    for (const session of userSessions) {
+      if (this.sessions.delete(session.id)) {
+        deleted = true;
+      }
+    }
+    return deleted;
   }
 }
 
