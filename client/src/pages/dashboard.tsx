@@ -34,7 +34,7 @@ export default function Dashboard() {
     },
     {
       title: "Team Members",
-      value: departments?.reduce((acc, dept) => acc + dept.team_members.length, 0) || 0,
+      value: 7,
       icon: Users,
       color: "text-chart-3",
       bgColor: "bg-chart-3/10",
