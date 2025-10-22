@@ -77,14 +77,14 @@ export default function TeamChat() {
   }
 
   return (
-    <div className="p-8">
-      <div className="mb-6">
-        <h1 className="text-3xl font-bold" data-testid="text-page-title">Team Chat</h1>
-        <p className="text-muted-foreground mt-1">Communicate with your team members</p>
+    <div className="p-4 sm:p-6 lg:p-8">
+      <div className="mb-4 sm:mb-6">
+        <h1 className="text-2xl sm:text-3xl font-bold" data-testid="text-page-title">Team Chat</h1>
+        <p className="text-muted-foreground mt-1 text-sm sm:text-base">Communicate with your team members</p>
       </div>
 
-      <div className="grid grid-cols-12 gap-6 h-[calc(100vh-280px)]">
-        <Card className="col-span-12 md:col-span-4 lg:col-span-3">
+      <div className="grid grid-cols-1 lg:grid-cols-12 gap-4 sm:gap-6 h-[calc(100vh-200px)] sm:h-[calc(100vh-280px)]">
+        <Card className="lg:col-span-4 xl:col-span-3 h-full lg:h-auto">
           <CardContent className="p-0">
             <div className="p-4 border-b">
               <h3 className="font-semibold" data-testid="text-sidebar-title">Conversations</h3>
@@ -106,7 +106,7 @@ export default function TeamChat() {
                   <p className="text-xs text-muted-foreground truncate">Everyone in the workspace</p>
                 </div>
                 <Badge variant="secondary" className="bg-chart-1/10 text-chart-1 text-xs">
-                  {messages?.filter(m => m.receiverId === "global").length || 0}
+                  {messages?.filter(m => m.channel === "global").length || 0}
                 </Badge>
               </div>
 
@@ -157,7 +157,7 @@ export default function TeamChat() {
           </CardContent>
         </Card>
 
-        <Card className="col-span-12 md:col-span-8 lg:col-span-9">
+        <Card className="lg:col-span-8 xl:col-span-9 h-full">
           <CardContent className="p-0 flex flex-col h-full">
             {selectedMember ? (
               <>
@@ -238,12 +238,12 @@ export default function TeamChat() {
                   })}
                 </div>
 
-                <div className="p-4 border-t">
+                <div className="p-3 sm:p-4 border-t">
                   <div className="flex items-center gap-2">
-                    <Button size="icon" variant="ghost" data-testid="button-emoji">
+                    <Button size="icon" variant="ghost" className="hidden sm:flex" data-testid="button-emoji">
                       <Smile className="w-5 h-5" />
                     </Button>
-                    <Button size="icon" variant="ghost" data-testid="button-attach">
+                    <Button size="icon" variant="ghost" className="hidden sm:flex" data-testid="button-attach">
                       <Paperclip className="w-5 h-5" />
                     </Button>
                     <Input
@@ -256,13 +256,13 @@ export default function TeamChat() {
                           handleSendMessage();
                         }
                       }}
-                      className="flex-1"
+                      className="flex-1 min-h-[44px]"
                       data-testid="input-message"
                     />
                     <Button
                       onClick={handleSendMessage}
                       disabled={!messageInput.trim() || sendMessageMutation.isPending}
-                      className="bg-gradient-to-r from-primary to-chart-2"
+                      className="bg-gradient-to-r from-primary to-chart-2 min-h-[44px] min-w-[44px]"
                       data-testid="button-send"
                     >
                       <Send className="w-4 h-4" />

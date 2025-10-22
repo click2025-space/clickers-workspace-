@@ -30,10 +30,10 @@ export function Header() {
   };
 
   return (
-    <header className="flex items-center justify-between gap-4 px-6 py-3 border-b sticky top-0 z-10 bg-background">
-      <div className="flex items-center gap-4 flex-1">
+    <header className="flex items-center justify-between gap-2 sm:gap-4 px-3 sm:px-6 py-3 border-b sticky top-0 z-10 bg-background">
+      <div className="flex items-center gap-2 sm:gap-4 flex-1">
         <SidebarTrigger data-testid="button-sidebar-toggle" />
-        <div className="relative flex-1 max-w-md">
+        <div className="relative flex-1 max-w-md hidden sm:block">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
           <Input
             type="search"
@@ -42,9 +42,13 @@ export function Header() {
             data-testid="input-search"
           />
         </div>
+        {/* Mobile search button */}
+        <Button size="icon" variant="ghost" className="sm:hidden" data-testid="button-mobile-search">
+          <Search className="w-5 h-5" />
+        </Button>
       </div>
 
-      <div className="flex items-center gap-2">
+      <div className="flex items-center gap-1 sm:gap-2">
         <Button
           size="icon"
           variant="ghost"

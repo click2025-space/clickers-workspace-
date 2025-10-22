@@ -69,33 +69,34 @@ export default function Dashboard() {
   }
 
   return (
-    <div className="p-8 space-y-8">
-      <div>
-        <h1 className="text-3xl font-bold text-foreground" data-testid="text-page-title">Welcome to Clickers Workspace</h1>
-        <p className="text-muted-foreground mt-1">Manage your teams, projects, and collaborate efficiently</p>
+    <div className="p-4 sm:p-6 lg:p-8">
+      <div className="mb-6 sm:mb-8">
+        <h1 className="text-2xl sm:text-3xl font-bold mb-2" data-testid="text-page-title">Dashboard</h1>
+        <p className="text-muted-foreground text-sm sm:text-base">Welcome back! Here's what's happening in your workspace.</p>
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+      {/* Stats Grid */}
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4 lg:gap-6 mb-6 sm:mb-8">
         {stats.map((stat) => (
           <Card key={stat.title} className="hover-elevate" data-testid={`card-stat-${stat.title.toLowerCase().replace(/\s+/g, '-')}`}>
             <CardHeader className="flex flex-row items-center justify-between gap-2 space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium text-muted-foreground">
+              <CardTitle className="text-xs sm:text-sm font-medium text-muted-foreground">
                 {stat.title}
               </CardTitle>
-              <div className={`p-2 rounded-lg ${stat.bgColor}`}>
-                <stat.icon className={`w-4 h-4 ${stat.color}`} />
+              <div className={`p-1.5 sm:p-2 rounded-lg ${stat.bgColor}`}>
+                <stat.icon className={`w-3 h-3 sm:w-4 sm:h-4 ${stat.color}`} />
               </div>
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold" data-testid={`text-stat-${stat.title.toLowerCase().replace(/\s+/g, '-')}`}>{stat.value}</div>
+              <div className="text-xl sm:text-2xl font-bold" data-testid={`text-stat-value-${stat.title.toLowerCase().replace(/\s+/g, '-')}`}>{stat.value}</div>
             </CardContent>
           </Card>
         ))}
       </div>
 
       <div>
-        <h2 className="text-2xl font-semibold mb-4" data-testid="text-section-title">Active Projects</h2>
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+        <h2 className="text-xl sm:text-2xl font-semibold mb-4" data-testid="text-section-title">Active Projects</h2>
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6">
           {projects && projects.length > 0 ? (
             projects.map((project) => (
               <Card key={project.id} className="hover-elevate" data-testid={`card-project-${project.id}`}>
