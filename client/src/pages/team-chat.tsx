@@ -1,20 +1,19 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { Card, CardContent } from "@/components/ui/card";
-import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { Badge } from "@/components/ui/badge";
-import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
-import { Send, Smile, Paperclip, Users } from "lucide-react";
+import { Input } from "@/components/ui/input";
+import { Badge } from "@/components/ui/badge";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { Users, Send, Smile, Paperclip } from "lucide-react";
 import { queryClient } from "@/lib/queryClient";
 import { messagesApi, membersApi } from "@/lib/supabase-api";
-import { useToast } from "@/hooks/use-toast";
 import { useSupabaseAuth } from "@/contexts/supabase-auth-context";
+import { supabase } from "@/lib/supabase";
 
 export default function TeamChat() {
   const [selectedMember, setSelectedMember] = useState<string | null>("global");
   const [messageInput, setMessageInput] = useState("");
-  const { toast } = useToast();
   const { user, profile } = useSupabaseAuth();
 
   const { data: members, isLoading: membersLoading } = useQuery({
@@ -27,6 +26,30 @@ export default function TeamChat() {
     queryFn: messagesApi.getAll,
   });
 
+  // Real-time subscription for messages
+  useEffect(() => {
+    const channel = supabase
+      .channel('messages-changes')
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'messages'
+        },
+        (payload) => {
+          console.log('Real-time message update:', payload);
+          // Invalidate and refetch messages when there's a change
+          queryClient.invalidateQueries({ queryKey: ["messages"] });
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, []);
+
   const sendMessageMutation = useMutation({
     mutationFn: async (data: { receiverId: string; content: string }) => {
       const timestamp = new Date().toISOString();
@@ -38,15 +61,11 @@ export default function TeamChat() {
       });
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["messages"] });
+      // No need to invalidate queries since real-time subscription will handle it
       setMessageInput("");
     },
-    onError: () => {
-      toast({
-        title: "Error",
-        description: "Failed to send message",
-        variant: "destructive",
-      });
+    onError: (error) => {
+      console.error("Failed to send message:", error);
     },
   });
 
