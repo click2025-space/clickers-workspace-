@@ -60,12 +60,40 @@ export default function TeamChat() {
         timestamp,
       });
     },
-    onSuccess: () => {
-      // No need to invalidate queries since real-time subscription will handle it
+    onMutate: async (newMessage) => {
+      // Cancel any outgoing refetches
+      await queryClient.cancelQueries({ queryKey: ["messages"] });
+
+      // Snapshot the previous value
+      const previousMessages = queryClient.getQueryData(["messages"]);
+
+      // Optimistically update to the new value
+      const optimisticMessage = {
+        id: `temp-${Date.now()}`, // Temporary ID
+        sender_id: user?.id || "anonymous",
+        channel: newMessage.receiverId,
+        content: newMessage.content,
+        timestamp: new Date().toISOString(),
+      };
+
+      queryClient.setQueryData(["messages"], (old: any) => {
+        return old ? [...old, optimisticMessage] : [optimisticMessage];
+      });
+
+      // Clear input immediately
       setMessageInput("");
+
+      // Return a context object with the snapshotted value
+      return { previousMessages };
     },
-    onError: (error) => {
-      console.error("Failed to send message:", error);
+    onError: (err, newMessage, context) => {
+      // If the mutation fails, use the context returned from onMutate to roll back
+      queryClient.setQueryData(["messages"], context?.previousMessages);
+      console.error("Failed to send message:", err);
+    },
+    onSettled: () => {
+      // Always refetch after error or success to ensure server state
+      queryClient.invalidateQueries({ queryKey: ["messages"] });
     },
   });
 
