@@ -134,10 +134,11 @@ export default function TeamChat() {
         </Card>
 
         <Card className="lg:col-span-8 xl:col-span-9 h-full">
-          <CardContent className="p-0 flex flex-col h-full">
+          <CardContent className="p-0 flex flex-col h-full relative">
             {selectedMember ? (
               <>
-                <div className="p-4 border-b">
+                {/* Fixed Header */}
+                <div className="p-4 border-b bg-background sticky top-0 z-10">
                   {selectedMember === "global" ? (
                     <div className="flex items-center gap-3">
                       <div className="w-10 h-10 rounded-full bg-gradient-to-br from-primary to-chart-2 flex items-center justify-center">
@@ -164,7 +165,8 @@ export default function TeamChat() {
                   )}
                 </div>
 
-                <div className="flex-1 overflow-y-auto p-4 space-y-4">
+                {/* Scrollable Messages Area */}
+                <div className="flex-1 overflow-y-auto p-4 space-y-4 pb-20">
                   {filteredMessages.map((message) => {
                     const isSent = message.sender_id === user?.id;
                     const sender = profiles?.find(p => p.user_id === message.sender_id);
@@ -214,7 +216,8 @@ export default function TeamChat() {
                   })}
                 </div>
 
-                <div className="p-3 sm:p-4 border-t">
+                {/* Fixed Input Bar */}
+                <div className="absolute bottom-0 left-0 right-0 p-3 sm:p-4 border-t bg-background/95 backdrop-blur-sm">
                   <div className="flex items-center gap-2">
                     <Button size="icon" variant="ghost" className="hidden sm:flex" data-testid="button-emoji">
                       <Smile className="w-5 h-5" />
