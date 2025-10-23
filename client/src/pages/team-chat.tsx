@@ -7,7 +7,7 @@ import { Badge } from "@/components/ui/badge";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Users, Send, Smile, Paperclip } from "lucide-react";
 import { queryClient } from "@/lib/queryClient";
-import { messagesApi, membersApi } from "@/lib/supabase-api";
+import { messagesApi, profilesApi } from "@/lib/supabase-api";
 import { useSupabaseAuth } from "@/contexts/supabase-auth-context";
 import { supabase } from "@/lib/supabase";
 
@@ -16,9 +16,9 @@ export default function TeamChat() {
   const [messageInput, setMessageInput] = useState("");
   const { user, profile } = useSupabaseAuth();
 
-  const { data: members, isLoading: membersLoading } = useQuery({
-    queryKey: ["members"],
-    queryFn: membersApi.getAll,
+  const { data: profiles, isLoading: profilesLoading } = useQuery({
+    queryKey: ["profiles"],
+    queryFn: profilesApi.getAll,
   });
 
   const { data: messages, isLoading: messagesLoading } = useQuery({
@@ -87,7 +87,7 @@ export default function TeamChat() {
     );
   }) || [];
 
-  if (membersLoading || messagesLoading) {
+  if (profilesLoading || messagesLoading) {
     return (
       <div className="p-8">
         <div className="animate-pulse h-[calc(100vh-200px)] bg-secondary rounded-lg"></div>
@@ -135,14 +135,14 @@ export default function TeamChat() {
               </div>
 
               {/* Individual Team Members */}
-              {members && members.map((member) => (
+              {profiles && profiles.map((member) => (
                 <div
-                  key={member.id}
-                  onClick={() => setSelectedMember(member.id)}
+                  key={member.user_id}
+                  onClick={() => setSelectedMember(member.user_id)}
                   className={`flex items-center gap-3 p-4 cursor-pointer hover-elevate ${
-                    selectedMember === member.id ? "bg-secondary" : ""
+                    selectedMember === member.user_id ? "bg-secondary" : ""
                   }`}
-                  data-testid={`item-member-${member.id}`}
+                  data-testid={`item-member-${member.user_id}`}
                 >
                   <div className="relative">
                     <Avatar>
@@ -151,21 +151,14 @@ export default function TeamChat() {
                         {member.name.split(' ').map(n => n[0]).join('')}
                       </AvatarFallback>
                     </Avatar>
-                    <div
-                      className={`absolute bottom-0 right-0 w-3 h-3 rounded-full border-2 border-card ${
-                        member.status === "online"
-                          ? "bg-chart-3"
-                          : member.status === "away"
-                          ? "bg-chart-4"
-                          : "bg-muted"
-                      }`}
-                    />
+                    <div className="absolute bottom-0 right-0 w-3 h-3 rounded-full border-2 border-card bg-chart-3" />
                   </div>
                   <div className="flex-1 min-w-0">
-                    <p className="font-medium truncate" data-testid={`text-member-name-${member.id}`}>{member.name}</p>
+                    <p className="font-medium truncate" data-testid={`text-member-name-${member.user_id}`}>{member.name}</p>
                     <p className="text-xs text-muted-foreground truncate">{member.role}</p>
                   </div>
-                  {member.status === "online" && (
+                  {/* Always show as online for now since profiles don't have status */}
+                  {true && (
                     <Badge variant="secondary" className="bg-chart-3/10 text-chart-3 text-xs">
                       Online
                     </Badge>
@@ -188,7 +181,7 @@ export default function TeamChat() {
                       </div>
                       <div>
                         <p className="font-semibold" data-testid="text-chat-header-name">Team Chat</p>
-                        <p className="text-xs text-muted-foreground" data-testid="text-chat-header-status">{members?.length || 0} members</p>
+                        <p className="text-xs text-muted-foreground" data-testid="text-chat-header-status">{profiles?.length || 0} members</p>
                       </div>
                     </div>
                   ) : (
@@ -196,11 +189,11 @@ export default function TeamChat() {
                       <Avatar>
                         <AvatarImage src="" alt="Member" />
                         <AvatarFallback className="bg-gradient-to-br from-primary to-chart-2 text-white">
-                          {members?.find(m => m.id === selectedMember)?.name.split(' ').map(n => n[0]).join('') || "M"}
+                          {profiles?.find(p => p.user_id === selectedMember)?.name?.split(' ').map(n => n[0]).join('') || "M"}
                         </AvatarFallback>
                       </Avatar>
                       <div>
-                        <p className="font-semibold" data-testid="text-chat-header-name">{members?.find(m => m.id === selectedMember)?.name}</p>
+                        <p className="font-semibold" data-testid="text-chat-header-name">{profiles?.find(p => p.user_id === selectedMember)?.name}</p>
                         <p className="text-xs text-chart-3" data-testid="text-chat-header-status">Online</p>
                       </div>
                     </div>
@@ -210,11 +203,11 @@ export default function TeamChat() {
                 <div className="flex-1 overflow-y-auto p-4 space-y-4">
                   {filteredMessages.map((message) => {
                     const isSent = message.sender_id === user?.id;
-                    const sender = members?.find(m => m.id === message.sender_id);
+                    const sender = profiles?.find(p => p.user_id === message.sender_id);
                     const isGlobalChat = selectedMember === "global";
                     
-                    // Get sender name from member lookup or profile
-                    const displayName = sender?.name || "Unknown User";
+                    // Get sender name from profile lookup
+                    const displayName = sender?.name || (isSent ? (profile?.name || "You") : "Unknown User");
                     const initials = displayName.split(' ').map((n: string) => n[0]).join('').toUpperCase() || "U";
                     
                     return (

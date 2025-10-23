@@ -441,6 +441,16 @@ export const profilesApi = {
     if (error && error.code !== 'PGRST116') throw error;
     return data || null;
   },
+
+  async getAll(): Promise<Profile[]> {
+    const { data, error } = await supabase
+      .from('profiles')
+      .select('*')
+      .order('name');
+
+    if (error) throw error;
+    return data || [];
+  },
 };
 
 // Settings API
