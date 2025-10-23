@@ -129,42 +129,6 @@ export default function TeamChat() {
                 </Badge>
               </div>
 
-              {/* Divider */}
-              <div className="px-4 py-2 border-b">
-                <p className="text-xs font-medium text-muted-foreground">Direct Messages</p>
-              </div>
-
-              {/* Individual Team Members */}
-              {profiles && profiles.map((member) => (
-                <div
-                  key={member.user_id}
-                  onClick={() => setSelectedMember(member.user_id)}
-                  className={`flex items-center gap-3 p-4 cursor-pointer hover-elevate ${
-                    selectedMember === member.user_id ? "bg-secondary" : ""
-                  }`}
-                  data-testid={`item-member-${member.user_id}`}
-                >
-                  <div className="relative">
-                    <Avatar>
-                      <AvatarImage src={member.avatar || ""} alt={member.name} />
-                      <AvatarFallback className="bg-gradient-to-br from-primary to-chart-2 text-white">
-                        {member.name.split(' ').map(n => n[0]).join('')}
-                      </AvatarFallback>
-                    </Avatar>
-                    <div className="absolute bottom-0 right-0 w-3 h-3 rounded-full border-2 border-card bg-chart-3" />
-                  </div>
-                  <div className="flex-1 min-w-0">
-                    <p className="font-medium truncate" data-testid={`text-member-name-${member.user_id}`}>{member.name}</p>
-                    <p className="text-xs text-muted-foreground truncate">{member.role}</p>
-                  </div>
-                  {/* Always show as online for now since profiles don't have status */}
-                  {true && (
-                    <Badge variant="secondary" className="bg-chart-3/10 text-chart-3 text-xs">
-                      Online
-                    </Badge>
-                  )}
-                </div>
-              ))}
             </div>
           </CardContent>
         </Card>
