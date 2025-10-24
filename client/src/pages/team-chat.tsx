@@ -5,7 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { Users, Send, Smile, Paperclip, RefreshCw, File, Image, Download } from "lucide-react";
+import { Users, Send, Smile, Paperclip, RefreshCw, File, Image, Download, Trash2, MoreVertical } from "lucide-react";
 import { queryClient } from "@/lib/queryClient";
 import { messagesApi, profilesApi } from "@/lib/supabase-api";
 import { useSupabaseAuth } from "@/contexts/supabase-auth-context";
@@ -229,6 +229,44 @@ export default function TeamChat() {
     }
   };
 
+  const deleteMessageMutation = useMutation({
+    mutationFn: async (messageId: string) => {
+      if (!user?.id) throw new Error('User not authenticated');
+      return await messagesApi.delete(messageId, user.id);
+    },
+    onMutate: async (messageId) => {
+      // Cancel any outgoing refetches
+      await queryClient.cancelQueries({ queryKey: ["messages"] });
+
+      // Snapshot the previous value
+      const previousMessages = queryClient.getQueryData(["messages"]);
+
+      // Optimistically remove the message
+      queryClient.setQueryData(["messages"], (old: any) => {
+        return old ? old.filter((msg: any) => msg.id !== messageId) : [];
+      });
+
+      // Return a context object with the snapshotted value
+      return { previousMessages };
+    },
+    onError: (err, messageId, context) => {
+      // If the mutation fails, use the context returned from onMutate to roll back
+      queryClient.setQueryData(["messages"], context?.previousMessages);
+      console.error("Failed to delete message:", err);
+      alert("Failed to delete message. Please try again.");
+    },
+    onSettled: () => {
+      // Always refetch after error or success to ensure server state
+      queryClient.refetchQueries({ queryKey: ["messages"] });
+    },
+  });
+
+  const handleDeleteMessage = (messageId: string) => {
+    if (confirm("Are you sure you want to delete this message?")) {
+      deleteMessageMutation.mutate(messageId);
+    }
+  };
+
   const isFileMessage = (content: string) => {
     return content.startsWith('📎 ') && content.includes('|');
   };
@@ -378,7 +416,7 @@ export default function TeamChat() {
                         className={`flex ${isSent && !isGlobalChat ? "justify-end" : "justify-start"}`}
                         data-testid={`message-${message.id}`}
                       >
-                        <div className={`flex items-end gap-2 max-w-[70%] ${isSent && !isGlobalChat ? "flex-row-reverse" : "flex-row"}`}>
+                        <div className={`flex items-end gap-2 max-w-[70%] ${isSent && !isGlobalChat ? "flex-row-reverse" : "flex-row"} group`}>
                           {(!isSent || isGlobalChat) && (
                             <Avatar className="w-8 h-8 flex-shrink-0">
                               <AvatarImage src="" alt="User" />
@@ -446,6 +484,19 @@ export default function TeamChat() {
                               {message.timestamp}
                             </p>
                           </div>
+                          
+                          {/* Delete button for user's own messages */}
+                          {isSent && (
+                            <Button
+                              size="icon"
+                              variant="ghost"
+                              onClick={() => handleDeleteMessage(message.id)}
+                              className="h-6 w-6 opacity-0 group-hover:opacity-100 transition-opacity duration-200 hover:bg-destructive hover:text-destructive-foreground"
+                              data-testid={`button-delete-message-${message.id}`}
+                            >
+                              <Trash2 className="w-3 h-3" />
+                            </Button>
+                          )}
                         </div>
                       </div>
                     );

@@ -396,6 +396,16 @@ export const messagesApi = {
     if (error) throw error;
     return data;
   },
+
+  async delete(messageId: string, userId: string): Promise<void> {
+    const { error } = await supabase
+      .from('messages')
+      .delete()
+      .eq('id', messageId)
+      .eq('sender_id', userId); // Only allow users to delete their own messages
+
+    if (error) throw error;
+  },
 };
 
 // Profiles API
