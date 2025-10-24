@@ -1,11 +1,11 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { Users, Send, Smile, Paperclip } from "lucide-react";
+import { Users, Send, Smile, Paperclip, RefreshCw } from "lucide-react";
 import { queryClient } from "@/lib/queryClient";
 import { messagesApi, profilesApi } from "@/lib/supabase-api";
 import { useSupabaseAuth } from "@/contexts/supabase-auth-context";
@@ -14,7 +14,9 @@ import { supabase } from "@/lib/supabase";
 export default function TeamChat() {
   const [selectedMember, setSelectedMember] = useState<string | null>("global");
   const [messageInput, setMessageInput] = useState("");
+  const [isRefreshing, setIsRefreshing] = useState(false);
   const { user, profile } = useSupabaseAuth();
+  const messagesEndRef = useRef<HTMLDivElement>(null);
 
   const { data: profiles, isLoading: profilesLoading } = useQuery({
     queryKey: ["profiles"],
@@ -24,31 +26,74 @@ export default function TeamChat() {
   const { data: messages, isLoading: messagesLoading } = useQuery({
     queryKey: ["messages"],
     queryFn: messagesApi.getAll,
+    refetchInterval: 1000, // Aggressive polling: refetch every 1 second
+    refetchIntervalInBackground: true, // Keep refetching even when tab is not active
+    refetchOnWindowFocus: true, // Refetch when window gains focus
+    refetchOnMount: true, // Refetch when component mounts
   });
 
   // Real-time subscription for messages
   useEffect(() => {
+    console.log('🔄 Setting up real-time subscription for messages...');
+    
     const channel = supabase
-      .channel('messages-changes')
+      .channel('messages-realtime', {
+        config: {
+          broadcast: { self: true },
+          presence: { key: user?.id }
+        }
+      })
       .on(
         'postgres_changes',
         {
-          event: '*',
+          event: 'INSERT',
           schema: 'public',
           table: 'messages'
         },
         (payload) => {
-          console.log('Real-time message update:', payload);
-          // Invalidate and refetch messages when there's a change
-          queryClient.invalidateQueries({ queryKey: ["messages"] });
+          console.log('📨 New message received via real-time:', payload);
+          // Force immediate refetch of messages
+          queryClient.refetchQueries({ queryKey: ["messages"] });
         }
       )
-      .subscribe();
+      .on(
+        'postgres_changes',
+        {
+          event: 'UPDATE',
+          schema: 'public',
+          table: 'messages'
+        },
+        (payload) => {
+          console.log('📝 Message updated via real-time:', payload);
+          queryClient.refetchQueries({ queryKey: ["messages"] });
+        }
+      )
+      .on(
+        'postgres_changes',
+        {
+          event: 'DELETE',
+          schema: 'public',
+          table: 'messages'
+        },
+        (payload) => {
+          console.log('🗑️ Message deleted via real-time:', payload);
+          queryClient.refetchQueries({ queryKey: ["messages"] });
+        }
+      )
+      .subscribe((status) => {
+        console.log('📡 Real-time subscription status:', status);
+        if (status === 'SUBSCRIBED') {
+          console.log('✅ Successfully subscribed to real-time messages');
+        } else if (status === 'CHANNEL_ERROR') {
+          console.error('❌ Real-time subscription error');
+        }
+      });
 
     return () => {
+      console.log('🔌 Cleaning up real-time subscription');
       supabase.removeChannel(channel);
     };
-  }, []);
+  }, [user?.id]);
 
   const sendMessageMutation = useMutation({
     mutationFn: async (data: { receiverId: string; content: string }) => {
@@ -105,6 +150,16 @@ export default function TeamChat() {
     });
   };
 
+  const handleManualRefresh = async () => {
+    console.log('🔄 Manual refresh triggered');
+    setIsRefreshing(true);
+    try {
+      await queryClient.refetchQueries({ queryKey: ["messages"] });
+    } finally {
+      setTimeout(() => setIsRefreshing(false), 500); // Show loading for at least 500ms
+    }
+  };
+
   const filteredMessages = messages?.filter((msg) => {
     if (selectedMember === "global") {
       return msg.channel === "global";
@@ -113,7 +168,12 @@ export default function TeamChat() {
       (msg.sender_id === user?.id && msg.channel === selectedMember) ||
       (msg.sender_id === selectedMember && msg.channel === user?.id)
     );
-  }) || [];
+  }).sort((a, b) => new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime()) || [];
+
+  // Auto-scroll to bottom when messages change
+  useEffect(() => {
+    messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
+  }, [filteredMessages]);
 
   if (profilesLoading || messagesLoading) {
     return (
@@ -168,14 +228,26 @@ export default function TeamChat() {
                 {/* Fixed Header */}
                 <div className="p-4 border-b bg-background sticky top-0 z-10">
                   {selectedMember === "global" ? (
-                    <div className="flex items-center gap-3">
-                      <div className="w-10 h-10 rounded-full bg-gradient-to-br from-primary to-chart-2 flex items-center justify-center">
-                        <Users className="w-5 h-5 text-white" />
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-3">
+                        <div className="w-10 h-10 rounded-full bg-gradient-to-br from-primary to-chart-2 flex items-center justify-center">
+                          <Users className="w-5 h-5 text-white" />
+                        </div>
+                        <div>
+                          <p className="font-semibold" data-testid="text-chat-header-name">Team Chat</p>
+                          <p className="text-xs text-muted-foreground" data-testid="text-chat-header-status">{profiles?.length || 0} members</p>
+                        </div>
                       </div>
-                      <div>
-                        <p className="font-semibold" data-testid="text-chat-header-name">Team Chat</p>
-                        <p className="text-xs text-muted-foreground" data-testid="text-chat-header-status">{profiles?.length || 0} members</p>
-                      </div>
+                      <Button
+                        size="icon"
+                        variant="ghost"
+                        onClick={handleManualRefresh}
+                        disabled={isRefreshing}
+                        className="h-8 w-8"
+                        data-testid="button-refresh-messages"
+                      >
+                        <RefreshCw className={`w-4 h-4 ${isRefreshing ? 'animate-spin' : ''}`} />
+                      </Button>
                     </div>
                   ) : (
                     <div className="flex items-center gap-3">
@@ -242,6 +314,8 @@ export default function TeamChat() {
                       </div>
                     );
                   })}
+                  {/* Auto-scroll anchor */}
+                  <div ref={messagesEndRef} />
                 </div>
 
                 {/* Fixed Input Bar */}
