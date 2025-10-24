@@ -5,7 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { Users, Send, Smile, Paperclip, RefreshCw } from "lucide-react";
+import { Users, Send, Smile, Paperclip, RefreshCw, File, Image, Download } from "lucide-react";
 import { queryClient } from "@/lib/queryClient";
 import { messagesApi, profilesApi } from "@/lib/supabase-api";
 import { useSupabaseAuth } from "@/contexts/supabase-auth-context";
@@ -15,8 +15,11 @@ export default function TeamChat() {
   const [selectedMember, setSelectedMember] = useState<string | null>("global");
   const [messageInput, setMessageInput] = useState("");
   const [isRefreshing, setIsRefreshing] = useState(false);
+  const [selectedFile, setSelectedFile] = useState<File | null>(null);
+  const [isUploading, setIsUploading] = useState(false);
   const { user, profile } = useSupabaseAuth();
   const messagesEndRef = useRef<HTMLDivElement>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   const { data: profiles, isLoading: profilesLoading } = useQuery({
     queryKey: ["profiles"],
@@ -158,6 +161,99 @@ export default function TeamChat() {
     } finally {
       setTimeout(() => setIsRefreshing(false), 500); // Show loading for at least 500ms
     }
+  };
+
+  const handleFileSelect = (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (file) {
+      // Check file size (limit to 10MB)
+      if (file.size > 10 * 1024 * 1024) {
+        alert('File size must be less than 10MB');
+        return;
+      }
+      setSelectedFile(file);
+      console.log('📎 File selected:', file.name, file.type, file.size);
+    }
+  };
+
+  const handleFileUpload = async (file: File): Promise<string> => {
+    const fileName = `${Date.now()}-${file.name}`;
+    const filePath = `chat-files/${fileName}`;
+    
+    console.log('📤 Uploading file:', fileName);
+    
+    const { data, error } = await supabase.storage
+      .from('chat-attachments')
+      .upload(filePath, file);
+    
+    if (error) {
+      console.error('❌ File upload error:', error);
+      throw error;
+    }
+    
+    console.log('✅ File uploaded successfully:', data.path);
+    return data.path;
+  };
+
+  const handleSendFileMessage = async () => {
+    if (!selectedFile || !selectedMember) return;
+    
+    setIsUploading(true);
+    try {
+      // Upload file to Supabase Storage
+      const filePath = await handleFileUpload(selectedFile);
+      
+      // Get public URL for the file
+      const { data: urlData } = supabase.storage
+        .from('chat-attachments')
+        .getPublicUrl(filePath);
+      
+      // Send message with file attachment
+      const fileMessage = `📎 ${selectedFile.name}|${urlData.publicUrl}|${selectedFile.type}|${selectedFile.size}`;
+      
+      await sendMessageMutation.mutateAsync({
+        receiverId: selectedMember,
+        content: fileMessage,
+      });
+      
+      // Clear selected file
+      setSelectedFile(null);
+      if (fileInputRef.current) {
+        fileInputRef.current.value = '';
+      }
+    } catch (error) {
+      console.error('❌ Failed to send file:', error);
+      alert('Failed to send file. Please try again.');
+    } finally {
+      setIsUploading(false);
+    }
+  };
+
+  const isFileMessage = (content: string) => {
+    return content.startsWith('📎 ') && content.includes('|');
+  };
+
+  const parseFileMessage = (content: string) => {
+    if (!isFileMessage(content)) return null;
+    
+    const parts = content.substring(2).split('|'); // Remove '📎 ' prefix
+    if (parts.length >= 4) {
+      return {
+        fileName: parts[0],
+        fileUrl: parts[1],
+        fileType: parts[2],
+        fileSize: parseInt(parts[3])
+      };
+    }
+    return null;
+  };
+
+  const formatFileSize = (bytes: number) => {
+    if (bytes === 0) return '0 Bytes';
+    const k = 1024;
+    const sizes = ['Bytes', 'KB', 'MB', 'GB'];
+    const i = Math.floor(Math.log(bytes) / Math.log(k));
+    return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
   };
 
   const filteredMessages = messages?.filter((msg) => {
@@ -304,7 +400,47 @@ export default function TeamChat() {
                                   : "bg-secondary rounded-bl-sm"
                               }`}
                             >
-                              <p className="text-sm" data-testid={`text-message-content-${message.id}`}>{message.content}</p>
+                              {isFileMessage(message.content) ? (
+                                (() => {
+                                  const fileData = parseFileMessage(message.content);
+                                  if (!fileData) return <p className="text-sm">{message.content}</p>;
+                                  
+                                  const isImage = fileData.fileType.startsWith('image/');
+                                  
+                                  return (
+                                    <div className="space-y-2">
+                                      {isImage ? (
+                                        <div className="max-w-xs">
+                                          <img 
+                                            src={fileData.fileUrl} 
+                                            alt={fileData.fileName}
+                                            className="rounded-lg max-w-full h-auto cursor-pointer"
+                                            onClick={() => window.open(fileData.fileUrl, '_blank')}
+                                          />
+                                        </div>
+                                      ) : (
+                                        <div className="flex items-center gap-3 p-3 bg-black/10 dark:bg-white/10 rounded-lg">
+                                          <File className="w-8 h-8 flex-shrink-0" />
+                                          <div className="flex-1 min-w-0">
+                                            <p className="text-sm font-medium truncate">{fileData.fileName}</p>
+                                            <p className="text-xs opacity-70">{formatFileSize(fileData.fileSize)}</p>
+                                          </div>
+                                          <Button
+                                            size="icon"
+                                            variant="ghost"
+                                            onClick={() => window.open(fileData.fileUrl, '_blank')}
+                                            className="h-8 w-8 flex-shrink-0"
+                                          >
+                                            <Download className="w-4 h-4" />
+                                          </Button>
+                                        </div>
+                                      )}
+                                    </div>
+                                  );
+                                })()
+                              ) : (
+                                <p className="text-sm" data-testid={`text-message-content-${message.id}`}>{message.content}</p>
+                              )}
                             </div>
                             <p className={`text-xs text-muted-foreground ${isSent && !isGlobalChat ? "text-right" : "text-left"}`}>
                               {message.timestamp}
@@ -320,13 +456,56 @@ export default function TeamChat() {
 
                 {/* Fixed Input Bar */}
                 <div className="absolute bottom-0 left-0 right-0 p-3 sm:p-4 border-t bg-background/95 backdrop-blur-sm">
+                  {/* File Preview */}
+                  {selectedFile && (
+                    <div className="mb-3 p-3 bg-secondary rounded-lg flex items-center gap-3">
+                      <File className="w-6 h-6 text-primary" />
+                      <div className="flex-1 min-w-0">
+                        <p className="text-sm font-medium truncate">{selectedFile.name}</p>
+                        <p className="text-xs text-muted-foreground">{formatFileSize(selectedFile.size)}</p>
+                      </div>
+                      <Button
+                        size="sm"
+                        onClick={handleSendFileMessage}
+                        disabled={isUploading}
+                        className="bg-gradient-to-r from-primary to-chart-2"
+                      >
+                        {isUploading ? 'Uploading...' : 'Send File'}
+                      </Button>
+                      <Button
+                        size="icon"
+                        variant="ghost"
+                        onClick={() => {
+                          setSelectedFile(null);
+                          if (fileInputRef.current) fileInputRef.current.value = '';
+                        }}
+                        className="h-8 w-8"
+                      >
+                        ×
+                      </Button>
+                    </div>
+                  )}
+                  
                   <div className="flex items-center gap-2">
                     <Button size="icon" variant="ghost" className="hidden sm:flex" data-testid="button-emoji">
                       <Smile className="w-5 h-5" />
                     </Button>
-                    <Button size="icon" variant="ghost" className="hidden sm:flex" data-testid="button-attach">
+                    <Button 
+                      size="icon" 
+                      variant="ghost" 
+                      onClick={() => fileInputRef.current?.click()}
+                      className="hidden sm:flex" 
+                      data-testid="button-attach"
+                    >
                       <Paperclip className="w-5 h-5" />
                     </Button>
+                    <input
+                      ref={fileInputRef}
+                      type="file"
+                      onChange={handleFileSelect}
+                      className="hidden"
+                      accept="*/*"
+                    />
                     <Input
                       placeholder={selectedMember === "global" ? "Message the team..." : "Type a message..."}
                       value={messageInput}
