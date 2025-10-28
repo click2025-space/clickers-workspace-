@@ -5,7 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { Users, Send, Smile, Paperclip, RefreshCw, File, Image, Download, Trash2, MoreVertical } from "lucide-react";
+import { Users, Send, Smile, Paperclip, RefreshCw, File, Image, Download, Trash2, MoreVertical, Bell, BellOff } from "lucide-react";
 import { queryClient } from "@/lib/queryClient";
 import { messagesApi, profilesApi } from "@/lib/supabase-api";
 import { useSupabaseAuth } from "@/contexts/supabase-auth-context";
@@ -17,6 +17,9 @@ export default function TeamChat() {
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [isUploading, setIsUploading] = useState(false);
+  const [notificationPermission, setNotificationPermission] = useState<NotificationPermission>("default");
+  const [lastMessageCount, setLastMessageCount] = useState<number>(0);
+  const [notificationsEnabled, setNotificationsEnabled] = useState<boolean>(true);
   const { user, profile } = useSupabaseAuth();
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -97,6 +100,138 @@ export default function TeamChat() {
       supabase.removeChannel(channel);
     };
   }, [user?.id]);
+
+  // Request notification permission on component mount
+  useEffect(() => {
+    const requestNotificationPermission = async () => {
+      if ('Notification' in window) {
+        const permission = await Notification.requestPermission();
+        setNotificationPermission(permission);
+        console.log('🔔 Notification permission:', permission);
+      }
+    };
+
+    requestNotificationPermission();
+  }, []);
+
+  // Play notification sound
+  const playNotificationSound = () => {
+    try {
+      // Create a simple notification sound using Web Audio API
+      const audioContext = new (window.AudioContext || (window as any).webkitAudioContext)();
+      const oscillator = audioContext.createOscillator();
+      const gainNode = audioContext.createGain();
+      
+      oscillator.connect(gainNode);
+      gainNode.connect(audioContext.destination);
+      
+      oscillator.frequency.setValueAtTime(800, audioContext.currentTime);
+      oscillator.frequency.setValueAtTime(600, audioContext.currentTime + 0.1);
+      
+      gainNode.gain.setValueAtTime(0.3, audioContext.currentTime);
+      gainNode.gain.exponentialRampToValueAtTime(0.01, audioContext.currentTime + 0.3);
+      
+      oscillator.start(audioContext.currentTime);
+      oscillator.stop(audioContext.currentTime + 0.3);
+    } catch (error) {
+      console.log('🔇 Could not play notification sound:', error);
+    }
+  };
+
+  // Show notification for new messages
+  const showNotification = (message: any, isPrivate: boolean = false) => {
+    if (!notificationsEnabled || notificationPermission !== 'granted' || !('Notification' in window)) return;
+    
+    // Don't show notification for user's own messages
+    if (message.sender_id === user?.id) return;
+    
+    // Don't show notification if user is currently viewing the conversation
+    if (document.hasFocus() && 
+        ((isPrivate && selectedMember === message.sender_id) || 
+         (!isPrivate && selectedMember === "global"))) return;
+
+    const sender = profiles?.find(p => p.user_id === message.sender_id);
+    const senderName = sender?.name || "Someone";
+    
+    let title, body, icon;
+    
+    if (isPrivate) {
+      title = `💬 ${senderName}`;
+      body = isFileMessage(message.content) 
+        ? "📎 Sent you a file" 
+        : message.content.length > 50 
+          ? message.content.substring(0, 50) + "..." 
+          : message.content;
+      icon = sender?.avatar ?? "/favicon.ico";
+    } else {
+      title = "👥 Team Chat";
+      body = `${senderName}: ${isFileMessage(message.content) 
+        ? "📎 Sent a file" 
+        : message.content.length > 50 
+          ? message.content.substring(0, 50) + "..." 
+          : message.content}`;
+      icon = "/favicon.ico";
+    }
+
+    // Play notification sound
+    playNotificationSound();
+
+    const notification = new Notification(title, {
+      body,
+      icon,
+      badge: icon,
+      tag: isPrivate ? `private-${message.sender_id}` : 'team-chat',
+      requireInteraction: false,
+      silent: true // We handle sound manually
+    });
+
+    // Auto-close notification after 6 seconds
+    setTimeout(() => notification.close(), 6000);
+
+    // Click notification to focus the app and open the conversation
+    notification.onclick = () => {
+      window.focus();
+      if (isPrivate) {
+        setSelectedMember(message.sender_id);
+      } else {
+        setSelectedMember("global");
+      }
+      notification.close();
+    };
+
+    console.log(`🔔 Notification shown: ${title} - ${body}`);
+  };
+
+  // Monitor messages for notifications
+  useEffect(() => {
+    if (!messages || messages.length === 0) return;
+    
+    // Skip initial load
+    if (lastMessageCount === 0) {
+      setLastMessageCount(messages.length);
+      return;
+    }
+    
+    // Check for new messages
+    if (messages.length > lastMessageCount) {
+      const newMessages = messages.slice(lastMessageCount);
+      
+      newMessages.forEach(message => {
+        // Check if it's a private message to current user
+        const isPrivateToMe = message.channel === user?.id;
+        // Check if it's a team message
+        const isTeamMessage = message.channel === "global";
+        
+        if (isPrivateToMe) {
+          showNotification(message, true);
+        } else if (isTeamMessage) {
+          showNotification(message, false);
+        }
+      });
+      
+      setLastMessageCount(messages.length);
+    }
+  }, [messages, lastMessageCount, user?.id, profiles, selectedMember, notificationPermission]);
 
   const sendMessageMutation = useMutation({
     mutationFn: async (data: { receiverId: string; content: string }) => {
@@ -351,6 +486,79 @@ export default function TeamChat() {
                 </Badge>
               </div>
 
+              {/* Divider */}
+              <div className="px-4 py-2 border-b">
+                <p className="text-xs font-medium text-muted-foreground">Direct Messages</p>
+              </div>
+
+              {/* Individual Team Members for Private Chat */}
+              {profiles && profiles
+                .filter(member => member.user_id !== user?.id) // Don't show current user
+                .map((member) => {
+                  const privateMessages = messages?.filter(msg => 
+                    (msg.sender_id === user?.id && msg.channel === member.user_id) ||
+                    (msg.sender_id === member.user_id && msg.channel === user?.id)
+                  ) || [];
+                  
+                  const unreadCount = privateMessages.filter(msg => 
+                    msg.sender_id === member.user_id && 
+                    // In a real app, you'd track read status. For now, we'll show recent messages
+                    new Date(msg.timestamp) > new Date(Date.now() - 24 * 60 * 60 * 1000)
+                  ).length;
+
+                  const lastMessage = privateMessages.sort((a, b) => 
+                    new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime()
+                  )[0];
+
+                  return (
+                    <div
+                      key={member.user_id}
+                      onClick={() => setSelectedMember(member.user_id)}
+                      className={`flex items-center gap-3 p-4 cursor-pointer hover-elevate ${
+                        selectedMember === member.user_id ? "bg-secondary" : ""
+                      }`}
+                      data-testid={`item-member-${member.user_id}`}
+                    >
+                      <div className="relative">
+                        <Avatar>
+                          <AvatarImage src={member.avatar ?? ""} alt={member.name || "User"} />
+                          <AvatarFallback className="bg-gradient-to-br from-primary to-chart-2 text-white">
+                            {member.name?.split(' ').map(n => n[0]).join('').toUpperCase() || "U"}
+                          </AvatarFallback>
+                        </Avatar>
+                        <div className="absolute bottom-0 right-0 w-3 h-3 rounded-full border-2 border-card bg-chart-3" />
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center justify-between">
+                          <p className="font-medium truncate" data-testid={`text-member-name-${member.user_id}`}>
+                            {member.name}
+                          </p>
+                          {unreadCount > 0 && (
+                            <Badge variant="secondary" className="bg-chart-1/10 text-chart-1 text-xs ml-2">
+                              {unreadCount}
+                            </Badge>
+                          )}
+                        </div>
+                        <p className="text-xs text-muted-foreground truncate">
+                          {lastMessage ? (
+                            <>
+                              {lastMessage.sender_id === user?.id ? "You: " : ""}
+                              {isFileMessage(lastMessage.content) 
+                                ? "📎 File attachment" 
+                                : lastMessage.content.length > 30 
+                                  ? lastMessage.content.substring(0, 30) + "..." 
+                                  : lastMessage.content
+                              }
+                            </>
+                          ) : (
+                            "Start a conversation"
+                          )}
+                        </p>
+                      </div>
+                    </div>
+                  );
+                })}
+
             </div>
           </CardContent>
         </Card>
@@ -372,6 +580,54 @@ export default function TeamChat() {
                           <p className="text-xs text-muted-foreground" data-testid="text-chat-header-status">{profiles?.length || 0} members</p>
                         </div>
                       </div>
+                      <div className="flex items-center gap-2">
+                        <Button
+                          size="icon"
+                          variant="ghost"
+                          onClick={() => setNotificationsEnabled(!notificationsEnabled)}
+                          className="h-8 w-8"
+                          data-testid="button-toggle-notifications"
+                          title={notificationsEnabled ? "Disable notifications" : "Enable notifications"}
+                        >
+                          {notificationsEnabled ? (
+                            <Bell className="w-4 h-4 text-chart-3" />
+                          ) : (
+                            <BellOff className="w-4 h-4 text-muted-foreground" />
+                          )}
+                        </Button>
+                        <Button
+                          size="icon"
+                          variant="ghost"
+                          onClick={handleManualRefresh}
+                          disabled={isRefreshing}
+                          className="h-8 w-8"
+                          data-testid="button-refresh-messages"
+                        >
+                          <RefreshCw className={`w-4 h-4 ${isRefreshing ? 'animate-spin' : ''}`} />
+                        </Button>
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-3">
+                        <div className="relative">
+                          <Avatar>
+                            <AvatarImage src={profiles?.find(p => p.user_id === selectedMember)?.avatar ?? ""} alt="Member" />
+                            <AvatarFallback className="bg-gradient-to-br from-primary to-chart-2 text-white">
+                              {profiles?.find(p => p.user_id === selectedMember)?.name?.split(' ').map(n => n[0]).join('') || "M"}
+                            </AvatarFallback>
+                          </Avatar>
+                          <div className="absolute bottom-0 right-0 w-3 h-3 rounded-full border-2 border-card bg-chart-3" />
+                        </div>
+                        <div>
+                          <p className="font-semibold" data-testid="text-chat-header-name">
+                            {profiles?.find(p => p.user_id === selectedMember)?.name}
+                          </p>
+                          <p className="text-xs text-chart-3" data-testid="text-chat-header-status">
+                            Private conversation • Online
+                          </p>
+                        </div>
+                      </div>
                       <Button
                         size="icon"
                         variant="ghost"
@@ -382,19 +638,6 @@ export default function TeamChat() {
                       >
                         <RefreshCw className={`w-4 h-4 ${isRefreshing ? 'animate-spin' : ''}`} />
                       </Button>
-                    </div>
-                  ) : (
-                    <div className="flex items-center gap-3">
-                      <Avatar>
-                        <AvatarImage src="" alt="Member" />
-                        <AvatarFallback className="bg-gradient-to-br from-primary to-chart-2 text-white">
-                          {profiles?.find(p => p.user_id === selectedMember)?.name?.split(' ').map(n => n[0]).join('') || "M"}
-                        </AvatarFallback>
-                      </Avatar>
-                      <div>
-                        <p className="font-semibold" data-testid="text-chat-header-name">{profiles?.find(p => p.user_id === selectedMember)?.name}</p>
-                        <p className="text-xs text-chart-3" data-testid="text-chat-header-status">Online</p>
-                      </div>
                     </div>
                   )}
                 </div>
@@ -558,7 +801,11 @@ export default function TeamChat() {
                       accept="*/*"
                     />
                     <Input
-                      placeholder={selectedMember === "global" ? "Message the team..." : "Type a message..."}
+                      placeholder={
+                        selectedMember === "global" 
+                          ? "Message the team..." 
+                          : `Message ${profiles?.find(p => p.user_id === selectedMember)?.name || "user"}...`
+                      }
                       value={messageInput}
                       onChange={(e) => setMessageInput(e.target.value)}
                       onKeyDown={(e) => {
