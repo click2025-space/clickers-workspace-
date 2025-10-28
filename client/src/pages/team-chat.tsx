@@ -486,78 +486,83 @@ export default function TeamChat() {
                 </Badge>
               </div>
 
-              {/* Divider */}
-              <div className="px-4 py-2 border-b">
-                <p className="text-xs font-medium text-muted-foreground">Direct Messages</p>
-              </div>
+              {/* Spacer for better visual separation */}
+              <div className="flex-1"></div>
 
-              {/* Individual Team Members for Private Chat */}
-              {profiles && profiles
-                .filter(member => member.user_id !== user?.id) // Don't show current user
-                .map((member) => {
-                  const privateMessages = messages?.filter(msg => 
-                    (msg.sender_id === user?.id && msg.channel === member.user_id) ||
-                    (msg.sender_id === member.user_id && msg.channel === user?.id)
-                  ) || [];
-                  
-                  const unreadCount = privateMessages.filter(msg => 
-                    msg.sender_id === member.user_id && 
-                    // In a real app, you'd track read status. For now, we'll show recent messages
-                    new Date(msg.timestamp) > new Date(Date.now() - 24 * 60 * 60 * 1000)
-                  ).length;
+              {/* Direct Messages Section - Moved to bottom for easier access */}
+              <div className="border-t">
+                <div className="px-4 py-2">
+                  <p className="text-xs font-medium text-muted-foreground">Direct Messages</p>
+                </div>
 
-                  const lastMessage = privateMessages.sort((a, b) => 
-                    new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime()
-                  )[0];
+                {/* Individual Team Members for Private Chat */}
+                {profiles && profiles
+                  .filter(member => member.user_id !== user?.id) // Don't show current user
+                  .map((member) => {
+                    const privateMessages = messages?.filter(msg => 
+                      (msg.sender_id === user?.id && msg.channel === member.user_id) ||
+                      (msg.sender_id === member.user_id && msg.channel === user?.id)
+                    ) || [];
+                    
+                    const unreadCount = privateMessages.filter(msg => 
+                      msg.sender_id === member.user_id && 
+                      // In a real app, you'd track read status. For now, we'll show recent messages
+                      new Date(msg.timestamp) > new Date(Date.now() - 24 * 60 * 60 * 1000)
+                    ).length;
 
-                  return (
-                    <div
-                      key={member.user_id}
-                      onClick={() => setSelectedMember(member.user_id)}
-                      className={`flex items-center gap-3 p-4 cursor-pointer hover-elevate ${
-                        selectedMember === member.user_id ? "bg-secondary" : ""
-                      }`}
-                      data-testid={`item-member-${member.user_id}`}
-                    >
-                      <div className="relative">
-                        <Avatar>
-                          <AvatarImage src={member.avatar ?? ""} alt={member.name || "User"} />
-                          <AvatarFallback className="bg-gradient-to-br from-primary to-chart-2 text-white">
-                            {member.name?.split(' ').map(n => n[0]).join('').toUpperCase() || "U"}
-                          </AvatarFallback>
-                        </Avatar>
-                        <div className="absolute bottom-0 right-0 w-3 h-3 rounded-full border-2 border-card bg-chart-3" />
-                      </div>
-                      <div className="flex-1 min-w-0">
-                        <div className="flex items-center justify-between">
-                          <p className="font-medium truncate" data-testid={`text-member-name-${member.user_id}`}>
-                            {member.name}
-                          </p>
-                          {unreadCount > 0 && (
-                            <Badge variant="secondary" className="bg-chart-1/10 text-chart-1 text-xs ml-2">
-                              {unreadCount}
-                            </Badge>
-                          )}
+                    const lastMessage = privateMessages.sort((a, b) => 
+                      new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime()
+                    )[0];
+
+                    return (
+                      <div
+                        key={member.user_id}
+                        onClick={() => setSelectedMember(member.user_id)}
+                        className={`flex items-center gap-3 p-4 cursor-pointer hover-elevate ${
+                          selectedMember === member.user_id ? "bg-secondary" : ""
+                        }`}
+                        data-testid={`item-member-${member.user_id}`}
+                      >
+                        <div className="relative">
+                          <Avatar>
+                            <AvatarImage src={member.avatar ?? ""} alt={member.name || "User"} />
+                            <AvatarFallback className="bg-gradient-to-br from-primary to-chart-2 text-white">
+                              {member.name?.split(' ').map(n => n[0]).join('').toUpperCase() || "U"}
+                            </AvatarFallback>
+                          </Avatar>
+                          <div className="absolute bottom-0 right-0 w-3 h-3 rounded-full border-2 border-card bg-chart-3" />
                         </div>
-                        <p className="text-xs text-muted-foreground truncate">
-                          {lastMessage ? (
-                            <>
-                              {lastMessage.sender_id === user?.id ? "You: " : ""}
-                              {isFileMessage(lastMessage.content) 
-                                ? "📎 File attachment" 
-                                : lastMessage.content.length > 30 
-                                  ? lastMessage.content.substring(0, 30) + "..." 
-                                  : lastMessage.content
-                              }
-                            </>
-                          ) : (
-                            "Start a conversation"
-                          )}
-                        </p>
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-center justify-between">
+                            <p className="font-medium truncate" data-testid={`text-member-name-${member.user_id}`}>
+                              {member.name}
+                            </p>
+                            {unreadCount > 0 && (
+                              <Badge variant="secondary" className="bg-chart-1/10 text-chart-1 text-xs ml-2">
+                                {unreadCount}
+                              </Badge>
+                            )}
+                          </div>
+                          <p className="text-xs text-muted-foreground truncate">
+                            {lastMessage ? (
+                              <>
+                                {lastMessage.sender_id === user?.id ? "You: " : ""}
+                                {isFileMessage(lastMessage.content) 
+                                  ? "📎 File attachment" 
+                                  : lastMessage.content.length > 30 
+                                    ? lastMessage.content.substring(0, 30) + "..." 
+                                    : lastMessage.content
+                                }
+                              </>
+                            ) : (
+                              "Start a conversation"
+                            )}
+                          </p>
+                        </div>
                       </div>
-                    </div>
-                  );
-                })}
+                    );
+                  })}
+              </div>
 
             </div>
           </CardContent>
